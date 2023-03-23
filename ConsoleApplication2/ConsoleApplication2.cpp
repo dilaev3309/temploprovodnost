@@ -5,7 +5,7 @@
 #include <vector>
 #include <fstream>
 #include <string>
-
+#include </usr/local/cuda/include/nvtx3/nvToolsExt.h>
 
 
 int main(int argc, char** argv) {
@@ -36,9 +36,7 @@ int main(int argc, char** argv) {
     A[size * (size - 1)] = 20.0;
     double step = (20.0 - 10.0) / (size - 1);
     clock_t start = clock();
-#pragma acc enter data copyin(A[0:grid_size]) create(Anew[0:grid_size])
     {
-#pragma acc parallel loop seq gang num_gangs(size) vector vector_length(size)
         for (int i = 1; i < size - 1; i++) {
             A[i] = 10.0 + i * step;
             A[i * size + (size - 1)] = 20.0 + i * step;
@@ -54,8 +52,9 @@ int main(int argc, char** argv) {
     double tol = accuracy;
     int eter_max = iterations;
     start = clock();
-
+nvtxRangePushA("mainloop");
 #pragma acc enter data copyin(Anew[0:grid_size], A[0:grid_size], err, iter, tol, eter_max)
+    {
     while (err > tol && iter < eter_max) {
         iter++;
         if (iter % 100 == 0) {
@@ -63,7 +62,6 @@ int main(int argc, char** argv) {
             err = 0.0;
 #pragma acc update device(err) async(1)
         }
-
 #pragma acc data present(A, Anew, err)
 #pragma acc parallel loop independent collapse(2) vector vector_length(256) gang num_gangs(256) reduction(max:err) async(1)
         for (int i = 1; i < size - 1; i++) {
@@ -82,14 +80,13 @@ int main(int argc, char** argv) {
         A = Anew;
         Anew = tmp;
     }
-
+    }
+nvtxRangePop();
     end = clock();
-    work_time = double(end - start) / CLOCKS_PER_SEC;
 
-#pragma acc exit data copyout(A[0:grid_size], Anew[0:grid_size])
-#pragma acc update host(A[0:size * size], Anew[0:size * size], err)
-    std::cout << "Значение ошибки: " << err << std::endl;
-    std::cout << "Кол-во иттераций: " << iter << std::endl;
+    work_time = double(end - start) / CLOCKS_PER_SEC;
+    std::cout << "~Wна~Gение о~Hибки: " << err << std::endl;
+    std::cout << "~Zол-во и~B~Bе~@а~Fий: " << iter << std::endl;
     free(A);
     free(Anew);
     return 0;
